@@ -215,6 +215,7 @@ URLNetFiltering.prototype.evaluateZ = function(context, target, type) {
                 return this.r;
             }
         }
+
         entries = this.rules.get(shn + ' *');
         if ( entries !== undefined ) {
             let i = indexOfMatch(entries, target);

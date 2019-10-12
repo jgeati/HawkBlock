@@ -38,6 +38,7 @@ To create a log of net requests
 /******************************************************************************/
 
 const µb = µBlock;
+const RULE_CACHE_LIMIT = 100;
 
 /******************************************************************************/
 
@@ -56,7 +57,7 @@ const RuleCache = class {
 
     add(rule) {
         if (!(this.getList().includes(rule))) {
-            if (this.count < 100) {
+            if (this.count < RULE_CACHE_LIMIT) {
                 this.list.push(rule);
                 this.count++;
             } else {
@@ -597,13 +598,23 @@ const PageStore = class {
             }
         }
 
+        // Check rule cache
+        if ( result === 0 || result === 3 ) {
+            const list = this.ruleCache.getList();
+            for ( const i in list ) {
+                const asdf = list[i];
+                if ( fctxt.url.match(list[i]) ) {
+                    return 1;
+                }
+            }
+        }
+
         // Static filtering has lowest precedence.
         if ( result === 0 || result === 3 ) {
             result = µb.staticNetFilteringEngine.matchString(fctxt);
             if ( result !== 0 ) {
                 fctxt.filter = µb.staticNetFilteringEngine.toLogData();
                 this.ruleCache.add(fctxt.filter.regex);
-                // add to queue fctxt.filter.regex
             }
         }
 
