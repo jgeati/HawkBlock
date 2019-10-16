@@ -44,6 +44,10 @@ const RULE_CACHE_LIMIT = 100;
 
 let ruleCacheStore = [];
 let ruleCacheCount = 0;
+let cacheHits = 0;
+let cacheAdds = 0;
+let totalBlocked = 0;
+let totalRequests = 0;
 
 const RuleCache = class {
     constructor() {
@@ -57,6 +61,7 @@ const RuleCache = class {
 
     add(rule) {
         if (!(this.getList().includes(rule))) {
+            cacheAdds++;
             if (this.count < RULE_CACHE_LIMIT) {
                 this.list.unshift(rule);
                 this.count++;
@@ -65,11 +70,20 @@ const RuleCache = class {
                 this.list.unshift(rule);
             }
         } else {
+            cacheHits++;
             this.list.sort(function(x,y) {
                 return x === rule ? -1 : y === rule ? 1 : 0
             });
         }
     }
+
+    update(rule) {
+      cacheHits++;
+      this.list.sort(function(x,y) {
+        return x === rule ? -1 : y === rule ? 1 : 0
+      });
+    }
+
 
     dispose() {
         ruleCacheStore = this.getList();
@@ -83,7 +97,8 @@ const RuleCache = class {
     static factory() {
         return new RuleCache();
     }
-}
+};
+
 // To mitigate memory churning
 const netFilteringCacheJunkyard = [];
 const netFilteringCacheJunkyardMax = 10;
@@ -544,6 +559,7 @@ const PageStore = class {
     }
 
     filterRequest(fctxt) {
+        totalRequests++;
         fctxt.filter = undefined;
 
         if ( this.getNetFilteringSwitch(fctxt) === false ) {
@@ -587,6 +603,7 @@ const PageStore = class {
             requestType
         );
         if ( result !== 0 && µb.logger.enabled ) {
+            totalBlocked++;
             fctxt.filter = µb.sessionURLFiltering.toLogData();
         }
 
@@ -598,6 +615,7 @@ const PageStore = class {
                 requestType
             );
             if ( result !== 0 && result !== 3 && µb.logger.enabled ) {
+                totalBlocked++;
                 fctxt.filter = µb.sessionFirewall.toLogData();
             }
         }
@@ -608,6 +626,8 @@ const PageStore = class {
             for ( const i in list ) {
                 const rule = list[i];
                 if ( fctxt.url.match(rule) ) {
+                    totalBlocked++;
+                    this.ruleCache.update(rule);
                     return 1;
                 }
             }
@@ -618,7 +638,9 @@ const PageStore = class {
             result = µb.staticNetFilteringEngine.matchString(fctxt);
             if ( result !== 0 ) {
                 fctxt.filter = µb.staticNetFilteringEngine.toLogData();
+                totalBlocked++;
                 this.ruleCache.add(fctxt.filter.regex);
+
             }
         }
 
