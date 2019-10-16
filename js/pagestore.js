@@ -38,12 +38,12 @@ To create a log of net requests
 /******************************************************************************/
 
 const µb = µBlock;
-const RULE_CACHE_LIMIT = 100;
+const RULE_CACHE_LIMIT = 10;
 
 /******************************************************************************/
 
-let ruleCacheStore = []
-let ruleCacheCount = 0
+let ruleCacheStore = [];
+let ruleCacheCount = 0;
 
 const RuleCache = class {
     constructor() {
@@ -58,12 +58,16 @@ const RuleCache = class {
     add(rule) {
         if (!(this.getList().includes(rule))) {
             if (this.count < RULE_CACHE_LIMIT) {
-                this.list.push(rule);
+                this.list.unshift(rule);
                 this.count++;
             } else {
-                this.list.shift();
-                this.list.push(rule);
+                this.list.pop();
+                this.list.unshift(rule);
             }
+        } else {
+            this.list.sort(function(x,y) {
+                return x === rule ? -1 : y === rule ? 1 : 0
+            });
         }
     }
 
@@ -602,8 +606,8 @@ const PageStore = class {
         if ( result === 0 || result === 3 ) {
             const list = this.ruleCache.getList();
             for ( const i in list ) {
-                const asdf = list[i];
-                if ( fctxt.url.match(list[i]) ) {
+                const rule = list[i];
+                if ( fctxt.url.match(rule) ) {
                     return 1;
                 }
             }
