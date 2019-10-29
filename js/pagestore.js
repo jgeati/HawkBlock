@@ -36,7 +36,7 @@ To create a log of net requests
 // >>>>>
 
 /******************************************************************************/
-
+    
 const µb = µBlock;
 const RULE_CACHE_LIMIT = 100;
 
@@ -86,6 +86,13 @@ const RuleCache = class {
 
 
     dispose() {
+        let stats = {
+            cacheHits: cacheHits,
+            cacheAdds: cacheAdds,
+            totalBlocked: totalBlocked,
+            totalRequests: totalRequests
+        }
+        console.log(JSON.stringify(stats))
         ruleCacheStore = this.getList();
         ruleCacheCount = ruleCacheStore.length;
     }
