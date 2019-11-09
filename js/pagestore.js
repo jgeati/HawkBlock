@@ -48,6 +48,10 @@ let cacheHits = 0;
 let cacheAdds = 0;
 let totalBlocked = 0;
 let totalRequests = 0;
+let memoryUsageStore = 0;
+let timePassed = undefined;
+let firstTime = true;
+let store = {};
 
 const RuleCache = class {
     constructor() {
@@ -57,6 +61,56 @@ const RuleCache = class {
     init() {
         this.list = ruleCacheStore;
         this.count = ruleCacheCount;
+        this.memoryUsage = memoryUsageStore;
+        this.store = store;
+
+        if(firstTime) {
+            chrome.processes.onUpdatedWithMemory.addListener((processes) => {
+                if ( this.timer !== undefined ) { return; }
+                this.timer = vAPI.setTimeout(() => {
+                    this.timer = undefined;
+                    this.clearStore();
+                    console.log(this.memoryUsage + " bytes");
+                }, 5000);
+
+                for (const [_, value] of Object.entries(processes)) {
+                    if (value.tasks[0].title == "Extension: HawkBlock"){
+                        if(value.jsMemoryUsed) {
+                            this.memoryUsage = Number(value.jsMemoryUsed);
+                            return;
+                        }
+                    }
+                }
+            })
+
+
+            chrome.webRequest.onBeforeRequest.addListener(
+                function(details) {
+                    store[details.requestId] = details.timeStamp;
+                }, {
+                    urls: [ 'http://*/*', 'https://*/*' ],
+                    types: [ 'main_frame', 'sub_frame', 'csp_report', 'font', 'image', 'media', 'object', 'other', 'ping', 'script', 'stylesheet', 'websocket', 'xmlhttprequest' ]
+                },
+            );
+
+            chrome.webRequest.onCompleted.addListener(
+                function(details) {
+                    console.log(details.timeStamp - store[details.requestId] + " ms");
+                    delete store[details.requestId];
+                }, {
+                    urls: [ 'http://*/*', 'https://*/*' ],
+                    types: [ 'main_frame', 'sub_frame', 'csp_report', 'font', 'image', 'media', 'object', 'other', 'ping', 'script', 'stylesheet', 'websocket', 'xmlhttprequest' ]
+                },
+            );
+            firstTime = false;
+        }
+    }
+
+    clearStore() {
+        for (const [key, value] of Object.entries(store))
+            if (Date.now() - value > 60000) {
+                delete store[key];
+            }
     }
 
     add(rule) {
@@ -78,23 +132,26 @@ const RuleCache = class {
     }
 
     update(rule) {
-      cacheHits++;
-      this.list.sort(function(x,y) {
-        return x === rule ? -1 : y === rule ? 1 : 0
-      });
+        cacheHits++;
+        this.list.sort(function(x,y) {
+            return x === rule ? -1 : y === rule ? 1 : 0
+        });
     }
-
 
     dispose() {
         let stats = {
             cacheHits: cacheHits,
             cacheAdds: cacheAdds,
             totalBlocked: totalBlocked,
-            totalRequests: totalRequests
+            totalRequests: totalRequests,
+            memoryUsage: this.memoryUsage,
         }
-        console.log(JSON.stringify(stats))
+        // console.log(JSON.stringify(stats))
+        memoryUsageStore = this.memoryUsage;
+        store = this.store;
         ruleCacheStore = this.getList();
         ruleCacheCount = ruleCacheStore.length;
+        firstTime = false;
     }
 
     getList() {
@@ -637,7 +694,7 @@ const PageStore = class {
                     this.ruleCache.update(rule);
                     return 1;
                 }
-            }
+            }   
         }
 
         // Static filtering has lowest precedence.
