@@ -93,6 +93,16 @@ const RuleCache = class {
                 },
             );
 
+             chrome.webRequest.onErrorOccurred.addListener(
+                function(details) {
+                    console.log(details.timeStamp - store[details.requestId] + " ms");
+                    delete store[details.requestId];
+                }, {
+                    urls: [ 'http://*/*', 'https://*/*' ],
+                    types: [ 'main_frame', 'sub_frame', 'csp_report', 'font', 'image', 'media', 'object', 'other', 'ping', 'script', 'stylesheet', 'websocket', 'xmlhttprequest' ]
+                },
+            );
+
             chrome.webRequest.onCompleted.addListener(
                 function(details) {
                     console.log(details.timeStamp - store[details.requestId] + " ms");
